@@ -1,0 +1,26 @@
+{
+  "name": "adapt-server",
+  "version": "0.0.1",
+  "description": "Player Training API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tgouin/ADAPT-App.git"
+  },
+  "author": "",
+  "license": "Open",
+  "bugs": {
+    "url": "https://github.com/tgouin/ADAPT-App/issues"
+  },
+  "homepage": "https://github.com/tgouin/ADAPT-App#readme",
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "express": "^4.16.2",
+    "express-json": "^1.0.0",
+    "mysql": "^2.15.0"
+  }
+}
