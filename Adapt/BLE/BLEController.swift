@@ -39,8 +39,8 @@ class BLEController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     static var PERIPHERAL_UUID = "peripheral_uuid"
     //    static var SERVICE_UUID = "00000000-0001-11E1-9AB4-0002A5D5C51B" //for SensorTile
     //    static var CHARACTERISTIC_UUID = "00000100-0001-11E1-AC36-0002A5D5C51B" //for SensorTile
-    static var SERVICE_UUID = "0000FFE0-0000-1000-8000-00805F9B34FB" //HM-10
-    //    static var SERVICE_UUID = "0xFFE0" //HM-10
+    //static var SERVICE_UUID = "0000FFE0-0000-1000-8000-00805F9B34FB" //HM-10
+    static var SERVICE_UUID = "0xFFE0" //HM-10
     static var CHARACTERISTIC_UUID = "0xFFE1"//HM-10
     var serviceUUID = CBUUID(string: BLEController.SERVICE_UUID)
     var characteristicUUID = CBUUID(string: BLEController.CHARACTERISTIC_UUID)
@@ -104,17 +104,20 @@ class BLEController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             if characteristic.uuid == characteristicUUID {
                 
                 
-                guard let unwrappedPeripheral = sensorTile else { return }
+                guard sensorTile != nil else { return }
                 peripheral.setNotifyValue(true, for: characteristic)
                 
                 
                 let setstream:[UInt8] = [0x3a ,0x38, 0x30, 0x2c, 0x31 ,0x2c ,0x32, 0x35, 0x35, 0x2c, 0x32, 0x35 ,0x35 ,0x2c, 0x32, 0x35 ,0x35 ,0x2c ,0x32 ,0x35, 0x35 ,0x2c, 0x32, 0x35, 0x35 ,0x2c, 0x32 ,0x35, 0x35, 0x2c, 0x32, 0x35 ,0x35, 0x5c, 0x6e];
                 let setbaud:[UInt8] = [0x3a, 0x32, 0x33, 0x31, 0x2c, 0x39, 0x36 ,0x30, 0x30, 0x5c, 0x6e];
-                let setdelay:[UInt8] = [0x3a, 0x38, 0x32, 0x2c ,0x35 ,0x30, 0x30, 0x30 ,0x2c ,0x32, 0x32, 0x35, 0x32, 0x32, 0x35, 0x32, 0x32, 0x35, 0x32, 0x32, 0x35, 0x2c, 0x31, 0x30 ,0x30, 0x30 ,0x5c, 0x6e];
+                let setdelay:[UInt8] = [0x3a, 0x38, 0x32, 0x2c ,0x35 ,0x30, 0x30, 0x30 ,0x30,0x30,0x2c ,0x32, 0x32, 0x35, 0x32, 0x32, 0x35, 0x32, 0x32, 0x35, 0x32, 0x32, 0x35, 0x2c, 0x31, 0x30 ,0x30, 0x30 ,0x5c, 0x6e];
                 let savemode:[UInt8] = [0x3a, 0x32, 0x32, 0x35 ,0x5c ,0x6e];
                 let softreset:[UInt8] = [0x3a, 0x32 ,0x32, 0x36, 0x5c, 0x6e];
                 let startData:[UInt8] = [0x3a, 0x38, 0x35, 0x5c, 0x6e];
                 let startTimeLengthData:[UInt8] = [0x3a, 0x38, 0x35, 0x5c, 0x6e];
+                let startbin:[UInt8] = [0xf7, 0x55 ,0x55];
+                let setstreambin:[UInt8] = [0xf7, 0x50, 0x01, 0x51];
+                let setdelaybin:[UInt8] = [0xf7, 0x52, 0x7a, 0x51];
                 
                 let setstreambyte = Data(bytes: setstream)
                 let setbaudbyte = Data(bytes: setbaud)
@@ -122,14 +125,18 @@ class BLEController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
                 let savemodebyte = Data(bytes: savemode)
                 let resetbyte = Data(bytes: softreset)
                 let startDatabyte = Data(bytes: startData)
-                let startTimeLengthDatabyte = Data(bytes: startTimeLengthData)
+                let startbinbyte = Data(bytes: startbin)
+                let startstreambin = Data(bytes: setstreambin)
                 
-                //              peripheral.writeValue(setstreambyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                              peripheral.writeValue(setstreambyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
                 //               peripheral.writeValue(setbaudbyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
-                //                     peripheral.writeValue(setdelaybyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
-                //                peripheral.writeValue(savemodebyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                                     peripheral.writeValue(setdelaybyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                              //  peripheral.writeValue(savemodebyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
                 //                peripheral.writeValue(resetbyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
-                peripheral.writeValue(startTimeLengthDatabyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                
+
+                peripheral.writeValue(startbinbyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                
                 print(peripheral)
                 print(characteristic)
                 print(service)
@@ -143,103 +150,117 @@ class BLEController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         
         if var value = characteristic.value {
-            let data = NSData(data: value)
+            let data = NSMutableData(data: value);
+            var dd:Float = 0.0000
             
             //            print("Value data: \(value)")
-            print("Sensor data: \(value.hexEncodedString())")
+//            print("Sensor value hex: \(value.hexEncodedString())")
+//            print("Sensor data raw: \(data)")
+//            print("Sensor value: \(value)")
             //            print(value.count)
             //            var stop:UInt16 = 0
-            //            data.getBytes(&stop, range: NSMakeRange(0, 2))
-            //            print(value.count)
+            if value.count == 11{
+            data.getBytes(&dd, range: NSMakeRange(4,4))
+            }else if value.count == 10{
+                data.getBytes(&dd, range: NSMakeRange(3,4))
+            }else{
+                data.getBytes(&dd, range: NSMakeRange(0,value.count))
+            }
+            
+                        print(value.count)
             
             //Need to parse based on 0a (line break) - 10 and 2c (comma) - 44
             //parse values
-            var x:Int = 0
-            var found = false
-            var i:Int = 0
+            
+            print(dd)
+            
+            
+//            var x:Int = 0
+//            var found = false
+//            var i:Int = 0
             
             //                var timestamp:UInt16 = 0
             //                var yaw:Int16 = 0
             //                var pitch:Int16 = 0
             //                var roll:Int16 = 0
-            var yawstring = ""
-            var pitchstring = ""
-            var rollstring = ""
-            
-            
-            var d:Int16 = 0
-            print(value.count)
-            
-            while x < value.count{
-                data.getBytes(&d, range: NSMakeRange(x,1))
+//            var yawstring = ""
+//            var pitchstring = ""
+//            var rollstring = ""
+//
+//
+//            var d:Int16 = 0
+//            print("Length: \(value.count)")
+//
+//            while x < value.count{
+//                data.getBytes(&d, range: NSMakeRange(x,1))
 //                print("Index: \(x) , Data: \(d)")
-                
-                
-                if found == true{
-                    if d == 44{
-                        x = x + 1
-                        i = i + 1
-                        
-                    }else {
-                        if d == 10{
-                            found = false
-                            x = x + 1
-                        }else{
-                            if i == 0{
-                                yawstring.append(String(d))
-                            }
-                            if i == 1{
-                                pitchstring.append(String(d))                            }
-                            if i == 2{
-                                rollstring.append(String(d))                            }
-                            x = x+1
-                        }
-                    }
-                }else if d == 10{
-                    found = true
-                    x = x + 1
-                }else{
-                    x = x + 1
-                }
-            }
-            
-            //                            var timestamp = Int(
-            let yawA = Array(yawstring)
-            let pitchA = Array(pitchstring)
-            let rollA = Array(rollstring)
-            
-            var yawAstring: Array<String> = Array(repeating: "", count: yawstring.count/2)
-            var pitchAstring: Array<String> = Array(repeating: "", count: pitchstring.count/2)
-            var rollAstring: Array<String> = Array(repeating: "", count: rollstring.count/2)
-            
-            var c:Int = 0
-            
-            while c < yawA.count{
-                let index1 = yawA[c]
-                let index2 = yawA[c+1]
-                let i = [index1 , index2]
-                yawAstring[c/2] = String(i)
-                c = c + 2
-            }
-            c = 0
-            while c < pitchA.count{
-                let index1 = pitchA[c]
-                let index2 = pitchA[c+1]
-                let i = [index1 , index2]
-                pitchAstring[c/2] = String(i)
-                c = c + 2
-            }
-            c = 0
-            while c < rollA.count{
-                let index1 = rollA[c]
-                let index2 = rollA[c+1]
-                let i = [index1 , index2]
-                rollAstring[c/2] = String(String(i))
-                c = c + 2
-            }
-            print(yawAstring)
-            print(pitchAstring)
-            print(rollAstring)
+//
+//
+//                if found == true{
+//                    if d == 44{
+//                        x = x + 1
+//                        i = i + 1
+//
+//                    }else {
+//                        if d == 10{
+//                            found = false
+//                            x = x + 1
+//                        }else{
+//                            if i == 0{
+//                                yawstring.append(String(d))
+//                            }
+//                            if i == 1{
+//                                pitchstring.append(String(d))                            }
+//                            if i == 2{
+//                                rollstring.append(String(d))                            }
+//                            x = x+1
+//                        }
+//                    }
+//                }else if d == 10{
+//                    found = true
+//                    x = x + 1
+//                }else{
+//                    x = x + 1
+//                }
+//            }
+//
+//            //                            var timestamp = Int(
+//            let yawA = Array(yawstring)
+//            let pitchA = Array(pitchstring)
+//            let rollA = Array(rollstring)
+//
+//            var yawAstring: Array<String> = Array(repeating: "", count: yawstring.count/2)
+//            var pitchAstring: Array<String> = Array(repeating: "", count: pitchstring.count/2)
+//            var rollAstring: Array<String> = Array(repeating: "", count: rollstring.count/2)
+//
+//            var c:Int = 0
+//
+//            while c < yawA.count{
+//                let index1 = yawA[c]
+//                let index2 = yawA[c+1]
+//                let i = [index1 , index2]
+//                yawAstring[c/2] = String(i)
+//                c = c + 2
+//            }
+//            c = 0
+//            while c < pitchA.count{
+//                let index1 = pitchA[c]
+//                let index2 = pitchA[c+1]
+//                let i = [index1 , index2]
+//                pitchAstring[c/2] = String(i)
+//                c = c + 2
+//            }
+//            c = 0
+//            while c < rollA.count{
+//                let index1 = rollA[c]
+//                let index2 = rollA[c+1]
+//                let i = [index1 , index2]
+//                rollAstring[c/2] = String(String(i))
+//                c = c + 2
+//            }
+//            print(yawAstring)
+//            print(pitchAstring)
+//            print(rollAstring)
             //            while c < yawA.count/2{
             //
             //                yawA(c) = [Character](yawstring(c)+(yawstring(c+1)))

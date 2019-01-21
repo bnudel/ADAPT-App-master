@@ -12,9 +12,10 @@ import CoreBluetooth
 class BLEDevicesViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     @IBOutlet weak var tableView: UITableView!
     @IBOutlet weak var navBar: UINavigationBar!
-    
+
     var peripherals: [CBPeripheral] = []
     override func viewDidLoad() {
+
         super.viewDidLoad()
         self.tableView.register(UITableViewCell.self, forCellReuseIdentifier: "deviceCell")
 
@@ -31,6 +32,7 @@ class BLEDevicesViewController: UIViewController, UITableViewDelegate, UITableVi
             appDelegate.bleController.centralManager.cancelPeripheralConnection(peripheral)
         }
         BLEController.shouldAutoconnect = false
+        print("peep")
         appDelegate.bleController.startScan()
         print("start scan")
 
@@ -40,7 +42,6 @@ class BLEDevicesViewController: UIViewController, UITableViewDelegate, UITableVi
                         notification in
                         print(nc)
                         print(notification)
-                        print(notification.object as? CBPeripheral)
                      
                         if let peripheral = notification.object as? CBPeripheral {
                             if let name = peripheral.name {
