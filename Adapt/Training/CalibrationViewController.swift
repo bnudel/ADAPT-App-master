@@ -30,6 +30,18 @@ class CalibrationViewController: UIViewController, CLLocationManagerDelegate {
         tareOffsetX = -CGFloat(lastEuler.roll) * CalibrationViewController.EULER_SCALAR
         tareOffsetY = -CGFloat(lastEuler.pitch) * CalibrationViewController.EULER_SCALAR
         
+        func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {guard let characteristics = service.characteristics else { return }
+        
+            for characteristic in characteristics
+            {
+        let tare:[UInt8] = [0x3a, 0x39, 0x37, 0x5c, 0x6e];
+        let tarebin:[UInt8] = [0xf8, 0x60, 0x60];
+        let tarebyte = Data(bytes: tarebin);
+        peripheral.writeValue(tarebyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse);
+
+        }
+        }
+        
        if (!hasReceivedData) {
             let noDeviceAlert = UIAlertController(title: "Not Connected", message: "Please turn on the device and make sure Bluetooth is enabled", preferredStyle: UIAlertControllerStyle.alert)
             noDeviceAlert.addAction(UIAlertAction(title: "Done", style: UIAlertActionStyle.default, handler: { (alertAction) in

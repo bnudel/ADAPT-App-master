@@ -17,6 +17,26 @@ extension Data {
     }
 }
 
+func Endian_change(org:UInt32) -> UInt32 {
+    var org2=org
+    var new:UInt32=0
+    for i in 1...4 {
+        new*=256
+        new+=org2%256
+        org2=org2/256
+    }
+    return new
+}
+
+extension String {
+    func hextoFloat() -> Float {
+        var toInt = Int32(truncatingIfNeeded: strtol(self, nil, 16))
+        var float:Float32!
+        memcpy(&float, &toInt, MemoryLayout.size(ofValue: float))
+        //        print("\(float)")
+        return float
+    }
+}
 //extension String {
 //    func asciiValueOfString() -> [UInt32] {
 //
@@ -45,6 +65,8 @@ class BLEController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     var serviceUUID = CBUUID(string: BLEController.SERVICE_UUID)
     var characteristicUUID = CBUUID(string: BLEController.CHARACTERISTIC_UUID)
     var state:String?
+    var data_packet = NSMutableData()
+    var data_string = Data()
     var max: Int32 = 0
     
     var sensorTileName = "SensorTile"
@@ -115,9 +137,12 @@ class BLEController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
                 let softreset:[UInt8] = [0x3a, 0x32 ,0x32, 0x36, 0x5c, 0x6e];
                 let startData:[UInt8] = [0x3a, 0x38, 0x35, 0x5c, 0x6e];
                 let startTimeLengthData:[UInt8] = [0x3a, 0x38, 0x35, 0x5c, 0x6e];
-                let startbin:[UInt8] = [0xf7, 0x55 ,0x55];
+                let startbin:[UInt8] = [0xf9, 0x55 ,0x55];
                 let setstreambin:[UInt8] = [0xf7, 0x50, 0x01, 0x51];
                 let setdelaybin:[UInt8] = [0xf7, 0x52, 0x7a, 0x51];
+                let eulerbin:[UInt8] = [0xf9,0x01,0x01]
+                let eulerascii:[UInt8] = [0x3a,0x31,0x5c,0x6e]
+                let setheader:[UInt8] = [0xf7,0xdd,0x00,0x00,0x00,0x42,0x1f]
                 
                 let setstreambyte = Data(bytes: setstream)
                 let setbaudbyte = Data(bytes: setbaud)
@@ -127,15 +152,21 @@ class BLEController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
                 let startDatabyte = Data(bytes: startData)
                 let startbinbyte = Data(bytes: startbin)
                 let startstreambin = Data(bytes: setstreambin)
+                let eulerbinbyte = Data(bytes: eulerbin)
+                let eulerasciibyte = Data(bytes: eulerascii)
+                let setheaderbyte = Data(bytes:setheader)
                 
-                              peripheral.writeValue(setstreambyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                //                peripheral.writeValue(setstreambyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                //                peripheral.writeValue(eulerbinbyte, for: characteristic,type: CBCharacteristicWriteType.withoutResponse)
+                peripheral.writeValue(setheaderbyte, for: characteristic,type: CBCharacteristicWriteType.withoutResponse)
+                peripheral.writeValue(startbinbyte, for: characteristic,type: CBCharacteristicWriteType.withoutResponse)
                 //               peripheral.writeValue(setbaudbyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
-                                     peripheral.writeValue(setdelaybyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
-                              //  peripheral.writeValue(savemodebyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                //                peripheral.writeValue(setdelaybyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                //  peripheral.writeValue(savemodebyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
                 //                peripheral.writeValue(resetbyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
                 
-
-                peripheral.writeValue(startbinbyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
+                
+                //                peripheral.writeValue(startbinbyte, for: characteristic, type: CBCharacteristicWriteType.withoutResponse)
                 
                 print(peripheral)
                 print(characteristic)
@@ -150,210 +181,46 @@ class BLEController: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         
         if var value = characteristic.value {
-            let data = NSMutableData(data: value);
-            var dd:Float = 0.0000
-            
-            //            print("Value data: \(value)")
-//            print("Sensor value hex: \(value.hexEncodedString())")
-//            print("Sensor data raw: \(data)")
-//            print("Sensor value: \(value)")
-            //            print(value.count)
-            //            var stop:UInt16 = 0
-            if value.count == 11{
-            data.getBytes(&dd, range: NSMakeRange(4,4))
-            }else if value.count == 10{
-                data.getBytes(&dd, range: NSMakeRange(3,4))
-            }else{
-                data.getBytes(&dd, range: NSMakeRange(0,value.count))
+            //let data = NSMutableData(data: value)
+            //data_packet.appendData(data)
+            data_string.append(value)
+            var raw:UInt32=0
+            var hex_string=""
+            var timestamp:Float=0;
+            var yaw:Float=0;
+            var pitch:Float=0;
+            var roll:Float=0;
+            var droll:Double=0;
+            var dpitch:Double=0;
+            var dyaw:Double=0;
+            if(data_string.count>16){
+                let data = NSMutableData(data: data_string);
+                data_string=Data()
+                data.getBytes(&raw, range: NSMakeRange(5,4))
+                raw=Endian_change(org:raw)
+                hex_string=String(format:"%02X",raw)
+                print(hex_string)
+                yaw = hex_string.hextoFloat()
+                data.getBytes(&raw, range: NSMakeRange(9,4))
+                raw=Endian_change(org:raw)
+                hex_string=String(format:"%02X",raw)
+                print(hex_string)
+                pitch = hex_string.hextoFloat()
+                data.getBytes(&raw, range: NSMakeRange(13,4))
+                raw=Endian_change(org:raw)
+                hex_string=String(format:"%02X",raw)
+                print(hex_string)
+                roll = hex_string.hextoFloat()
+                dyaw = (Double)(yaw*180/3.141529)
+                droll = (Double)(roll*180/3.141529)
+                dpitch = (Double)(pitch*180/3.141529)
             }
             
-                        print(value.count)
-            
-            //Need to parse based on 0a (line break) - 10 and 2c (comma) - 44
-            //parse values
-            
-            print(dd)
-            
-            
-//            var x:Int = 0
-//            var found = false
-//            var i:Int = 0
-            
-            //                var timestamp:UInt16 = 0
-            //                var yaw:Int16 = 0
-            //                var pitch:Int16 = 0
-            //                var roll:Int16 = 0
-//            var yawstring = ""
-//            var pitchstring = ""
-//            var rollstring = ""
-//
-//
-//            var d:Int16 = 0
-//            print("Length: \(value.count)")
-//
-//            while x < value.count{
-//                data.getBytes(&d, range: NSMakeRange(x,1))
-//                print("Index: \(x) , Data: \(d)")
-//
-//
-//                if found == true{
-//                    if d == 44{
-//                        x = x + 1
-//                        i = i + 1
-//
-//                    }else {
-//                        if d == 10{
-//                            found = false
-//                            x = x + 1
-//                        }else{
-//                            if i == 0{
-//                                yawstring.append(String(d))
-//                            }
-//                            if i == 1{
-//                                pitchstring.append(String(d))                            }
-//                            if i == 2{
-//                                rollstring.append(String(d))                            }
-//                            x = x+1
-//                        }
-//                    }
-//                }else if d == 10{
-//                    found = true
-//                    x = x + 1
-//                }else{
-//                    x = x + 1
-//                }
-//            }
-//
-//            //                            var timestamp = Int(
-//            let yawA = Array(yawstring)
-//            let pitchA = Array(pitchstring)
-//            let rollA = Array(rollstring)
-//
-//            var yawAstring: Array<String> = Array(repeating: "", count: yawstring.count/2)
-//            var pitchAstring: Array<String> = Array(repeating: "", count: pitchstring.count/2)
-//            var rollAstring: Array<String> = Array(repeating: "", count: rollstring.count/2)
-//
-//            var c:Int = 0
-//
-//            while c < yawA.count{
-//                let index1 = yawA[c]
-//                let index2 = yawA[c+1]
-//                let i = [index1 , index2]
-//                yawAstring[c/2] = String(i)
-//                c = c + 2
-//            }
-//            c = 0
-//            while c < pitchA.count{
-//                let index1 = pitchA[c]
-//                let index2 = pitchA[c+1]
-//                let i = [index1 , index2]
-//                pitchAstring[c/2] = String(i)
-//                c = c + 2
-//            }
-//            c = 0
-//            while c < rollA.count{
-//                let index1 = rollA[c]
-//                let index2 = rollA[c+1]
-//                let i = [index1 , index2]
-//                rollAstring[c/2] = String(String(i))
-//                c = c + 2
-//            }
-//            print(yawAstring)
-//            print(pitchAstring)
-//            print(rollAstring)
-            //            while c < yawA.count/2{
-            //
-            //                yawA(c) = [Character](yawstring(c)+(yawstring(c+1)))
-            //
-            //            }
-            //
-            //
-            //            print("raw yaw data: \(yaw)")
-            ////            print("double yaw data: \(dYaw)")
-            //
-            //            print("raw pitch data: \(pitch)")
-            ////            print("double pitch data: \(dPitch)")
-            //
-            //            print("raw roll data: \(roll)")
-            //            print("double roll data: \(dRoll)")
-            
-            //            let dYaw = Double(yaw)/100
-            //            let dPitch = Double(pitch)/100
-            //            let dRoll = Double(roll)/100
-            //                var yawCHEST:Int16 = 0
-            //                data.getBytes(&yawCHEST, range: NSMakeRange(8, 2))
-            //
-            //                var pitchCHEST:Int16 = 0
-            //                data.getBytes(&pitchCHEST, range: NSMakeRange(10, 2))
-            //
-            //                var rollCHEST:Int16 = 0
-            //                data.getBytes(&rollCHEST, range: NSMakeRange(12, 2))
-            //
-            
-            //var qS:Int32 = 0
-            //data.getBytes(&qS, range: NSMakeRange(14, 4))
-            //                var dQi = Double(qI)
-            //                var dQj = Double(qJ)
-            //                var dQk = Double(qK)
-            //                var dQs = Double(qS)
-            //                if (qI > max) {
-            //                    max = qI
-            //                }
-            //                if (qJ > max) {
-            //                    max = qJ
-            //                }
-            //                if (qK > max) {
-            //                    max = qK
-            //                }
-            //                if (qS > max) {
-            //                    max = qS
-            //                }
-            
-            
-            //                var dYaw = Double(yaw)
-            //                var dPitch = Double(pitch)
-            //                var dRoll = Double(roll)
-            
-            //                print("raw yaw data: \(yaw)")
-            //                print("double yaw data: \(dYaw)")
-            //
-            //                print("raw pitch data: \(pitch)")
-            //                print("double pitch data: \(dPitch)")
-            //
-            //                print("raw roll data: \(roll)")
-            //                print("double roll data: \(dRoll)")
-            
-            //                var dYawCHEST = Double(yawCHEST)
-            //                var dPitchCHEST = Double(pitchCHEST)
-            //                var dRollCHEST = Double(rollCHEST)
-            //print("MAX \(max)")
-            //let normalized = sqrt(dQi * dQi + dQj * dQj + dQk * dQk)
-            //                dYaw /= 100.0
-            //                dPitch /= 100.0
-            //                dRoll /= 100.0
-            
-            //                print(dYaw)
-            //                print(dPitch)
-            //                print(dRoll)
-            //                dYawCHEST /= 100.0
-            //                dPitchCHEST /= 100.0
-            //                dRollCHEST /= 100.0
-            //                dQi /= BLEController.MAX_VALUE
-            //                dQj /= BLEController.MAX_VALUE
-            //                dQk /= BLEController.MAX_VALUE
-            //                dQs /= BLEController.MAX_VALUE
-            //                print("Timestamp: \(timestamp) Qi: \(dQi) Qj: \(dQj) Qk: \(dQk) Qs: \(dQs)")
-            //print("Timestamp: \(timestamp) Yaw: \(dYaw) Pitch: \(dPitch) Roll: \(dRoll)")
-            //let quaternion = Quaternion(x: dQi, y: dQj, z: dQk, w: dQs)
-            //let euler = Utilities.quatToEuler(quat: quaternion)
-//                           let euler = Euler(yaw: sYaw, pitch: sPitch, roll: sRoll)
-            ////                print(euler)
-            ////                let eulerCHEST = Euler(yaw: dYawCHEST, pitch: dPitchCHEST, roll: dRollCHEST)
-            //
-            //                //print("Euler Angles: yaw: \(euler.yaw) pitch: \(euler.pitch) roll: \(euler.roll)")
-            //                let nc = NotificationCenter.default
-            ////                nc.post(name:Notification.Name(rawValue:"DeviceDataCHEST"), object: eulerCHEST)
-            //                nc.post(name:Notification.Name(rawValue:"DeviceData"), object: euler)
+        
+           
+            let euler = Euler(yaw: dyaw, pitch: dpitch, roll: droll)
+            let nc = NotificationCenter.default
+            nc.post(name:Notification.Name(rawValue:"DeviceData"), object: euler)
             
         }
     }
